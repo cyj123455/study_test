@@ -1,0 +1,42 @@
+# Web 框架
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+
+# 数据库
+sqlalchemy==2.0.25
+pymysql==1.1.0
+cryptography==42.0.2
+
+# 数据与科学计算
+pandas==2.2.0
+numpy==1.26.4
+openpyxl==3.1.2
+xlrd==2.0.1
+
+# 机器学习
+scikit-learn==1.4.0
+statsmodels==0.14.1
+tensorflow==2.15.0
+
+# 爬虫与 HTTP
+requests==2.31.0
+beautifulsoup4==4.12.3
+lxml==5.1.0
+httpx==0.26.0
+
+# 认证与工具
+python-jose[cryptography]==3.3.0
+#passlib[bcrypt]==1.7.4
+passlib==1.7.3
+bcrypt==4.0.1
+python-multipart==0.0.9
+
+# 定时任务
+apscheduler==3.10.4
+
+# 报告导出
+reportlab==4.0.9
+
+# 环境变量与配置
+python-dotenv==1.0.1
+pydantic-settings==2.2.1
