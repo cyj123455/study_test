@@ -363,7 +363,7 @@ def save_to_db(
             market_name=str(row["market_name"]) if pd.notna(row.get("market_name")) else None,
             product_name=str(row.get("product_name", "")),
             price=float(row["price"]),
-            origin=str(row["origin"]) if pd.notna(row.get("origin")) else "广东",
+            origin="广东-广州",
             record_date=row["record_date"] if isinstance(row["record_date"], date) else pd.Timestamp(
                 row["record_date"]).date(),
         )
@@ -375,7 +375,7 @@ def save_to_db(
     for i, (_, row) in enumerate(weather_df.iterrows()):
         try:
             r = WeatherRecord(
-                origin=str(row.get("origin", "广东-广州")),
+                origin="广东-广州",
                 record_date=row["record_date"] if isinstance(row["record_date"], date) else pd.Timestamp(
                     row["record_date"]).date(),
                 temp_max=float(row["temp_max"]) if pd.notna(row.get("temp_max")) else None,

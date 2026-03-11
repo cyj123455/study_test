@@ -34,7 +34,19 @@ export interface AlertItem {
 }
 
 export interface TrainResult {
-  results: { model_name: string; mae?: number; rmse?: number; mape?: number; error?: string }[]
+  results: { model_name: string; mae?: number; rmse?: number; mape?: number; cv_std_mape?: number; error?: string }[]
+}
+
+export interface TrainHistoryResult {
+  results: {
+    id: number
+    product_name: string
+    model_name: string
+    mae?: number | null
+    rmse?: number | null
+    mape?: number | null
+    created_at?: string
+  }[]
 }
 
 export interface PredictResult {

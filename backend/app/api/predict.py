@@ -1,7 +1,7 @@
 """机器学习预测：训练、预测、模型对比"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.database import get_db
 from app.schemas.prediction import (
@@ -50,6 +50,8 @@ def train_models(
                 base_models=base_models,
                 train_ratio=body.train_ratio,
                 use_weather=True,
+                cv_folds=body.cv_folds,
+                eval_mode=body.eval_mode,
             )
         else:
             if model_name not in BASE_MODEL_MAP:
@@ -60,6 +62,8 @@ def train_models(
                 model_name,
                 train_ratio=body.train_ratio,
                 use_weather=True,
+                cv_folds=body.cv_folds,
+                eval_mode=body.eval_mode,
             )
         if "error" in res:
             results.append({"model_name": model_name, "error": res["error"]})
@@ -79,6 +83,7 @@ def train_models(
             "mae": res["mae"],
             "rmse": res["rmse"],
             "mape": res["mape"],
+            "cv_std_mape": res.get("cv_std_mape", 0.0),
         })
     return {"results": results}
 
@@ -95,6 +100,8 @@ def predict(
             body.product_name,
             base_models=None,
             use_weather=body.use_weather,
+            cv_folds=body.cv_folds,
+            eval_mode=body.eval_mode,
         )
     else:
         res = train_and_evaluate(
@@ -102,6 +109,8 @@ def predict(
             body.product_name,
             body.model_name,
             use_weather=body.use_weather,
+            cv_folds=body.cv_folds,
+            eval_mode=body.eval_mode,
         )
     if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
@@ -137,6 +146,8 @@ def predict_multi(
                 body.product_name,
                 base_models=body.ensemble_base_models,
                 use_weather=body.use_weather,
+                cv_folds=body.cv_folds,
+                eval_mode=body.eval_mode,
             )
             if "error" in res:
                 continue
@@ -157,6 +168,8 @@ def predict_multi(
                 body.product_name,
                 model_name,
                 use_weather=body.use_weather,
+                cv_folds=body.cv_folds,
+                eval_mode=body.eval_mode,
             )
             if "error" in res:
                 continue
@@ -176,3 +189,29 @@ def predict_multi(
 def list_models():
     """支持的模型列表"""
     return {"models": list_supported_models()}
+
+
+@router.get("/train-results")
+def list_train_results(
+    product_name: Optional[str] = None,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    q = db.query(ModelRun)
+    if product_name:
+        q = q.filter(ModelRun.product_name == product_name)
+    rows = q.order_by(ModelRun.created_at.desc()).limit(max(1, min(limit, 500))).all()
+    return {
+        "results": [
+            {
+                "id": r.id,
+                "product_name": r.product_name,
+                "model_name": r.model_name,
+                "mae": float(r.mae) if r.mae is not None else None,
+                "rmse": float(r.rmse) if r.rmse is not None else None,
+                "mape": float(r.mape) if r.mape is not None else None,
+                "created_at": r.created_at,
+            }
+            for r in rows
+        ]
+    }

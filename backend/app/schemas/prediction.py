@@ -9,6 +9,8 @@ class PredictionRequest(BaseModel):
     predict_days: int = 7  # 1 / 3 / 7 天
     use_weather: bool = True
     use_extreme_weather: bool = True
+    eval_mode: str = "walk_forward"
+    cv_folds: int = 5
 
 
 class ModelMetrics(BaseModel):
@@ -45,6 +47,8 @@ class MultiPredictionRequest(BaseModel):
     predict_days: int = 7
     use_weather: bool = True
     ensemble_base_models: Optional[List[str]] = None
+    eval_mode: str = "walk_forward"
+    cv_folds: int = 5
 
 
 class MultiPredictionResponse(BaseModel):
@@ -58,3 +62,4 @@ class TrainRequest(BaseModel):
     train_ratio: float = 0.8
     cv_folds: int = 5
     ensemble_base_models: Optional[List[str]] = None
+    eval_mode: str = "walk_forward"

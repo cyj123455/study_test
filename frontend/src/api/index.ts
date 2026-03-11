@@ -1,5 +1,5 @@
 import client from './client'
-import type { DashboardData, SeriesItem, CorrelationData, CompareItem, AlertItem, TrainResult, PredictResult, MultiPredictResult } from './types'
+import type { DashboardData, SeriesItem, CorrelationData, CompareItem, AlertItem, TrainResult, TrainHistoryResult, PredictResult, MultiPredictResult } from './types'
 
 export const auth = {
   login: (username: string, password: string) =>
@@ -47,12 +47,14 @@ export const analysis = {
 
 export const predict = {
   models: () => client.get<{ models: string[] }>('/api/predict/models'),
-  train: (product_name: string, models: string[], train_ratio?: number, cv_folds?: number, ensemble_base_models?: string[]) =>
-    client.post<TrainResult>('/api/predict/train', { product_name, models, train_ratio, cv_folds, ensemble_base_models }),
-  predict: (product_name: string, model_name: string, predict_days?: number, use_weather?: boolean) =>
-    client.post<PredictResult>('/api/predict/predict', { product_name, model_name, predict_days, use_weather }),
-  predictMulti: (product_name: string, model_names: string[], predict_days?: number, use_weather?: boolean, ensemble_base_models?: string[]) =>
-    client.post<MultiPredictResult>('/api/predict/predict-multi', { product_name, model_names, predict_days, use_weather, ensemble_base_models }),
+  train: (product_name: string, models: string[], train_ratio?: number, cv_folds?: number, ensemble_base_models?: string[], eval_mode: 'walk_forward' | 'holdout' = 'walk_forward') =>
+    client.post<TrainResult>('/api/predict/train', { product_name, models, train_ratio, cv_folds, ensemble_base_models, eval_mode }),
+  trainResults: (product_name?: string, limit: number = 100) =>
+    client.get<TrainHistoryResult>('/api/predict/train-results', { params: { product_name, limit } }),
+  predict: (product_name: string, model_name: string, predict_days?: number, use_weather?: boolean, cv_folds?: number, eval_mode: 'walk_forward' | 'holdout' = 'walk_forward') =>
+    client.post<PredictResult>('/api/predict/predict', { product_name, model_name, predict_days, use_weather, cv_folds, eval_mode }),
+  predictMulti: (product_name: string, model_names: string[], predict_days?: number, use_weather?: boolean, ensemble_base_models?: string[], cv_folds?: number, eval_mode: 'walk_forward' | 'holdout' = 'walk_forward') =>
+    client.post<MultiPredictResult>('/api/predict/predict-multi', { product_name, model_names, predict_days, use_weather, ensemble_base_models, cv_folds, eval_mode }),
 }
 
 export const alerts = {

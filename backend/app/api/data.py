@@ -163,7 +163,7 @@ def import_price_excel(
             market_name=str(row.get("market_name", row.get("市场名称", ""))) or None,
             product_name=str(row.get("product_name", row.get("产品名称", ""))),
             price=float(price_val),
-            origin=str(row.get("origin", row.get("地区", "广东"))) if pd.notna(row.get("origin", row.get("地区", None))) else "广东",
+            origin="广东-广州",
             sale_region=None,
             record_date=row["record_date"],
             spec=str(row.get("spec", "中等")),
@@ -250,7 +250,7 @@ def import_weather_excel(
     n = 0
     for _, row in df.iterrows():
         r = WeatherRecord(
-            origin=str(row.get("origin", "广东-广州")),
+            origin="广东-广州",
             record_date=row["record_date"],
             temp_max=float(row["temp_max"]) if pd.notna(row.get("temp_max")) else None,
             temp_min=float(row["temp_min"]) if pd.notna(row.get("temp_min")) else None,

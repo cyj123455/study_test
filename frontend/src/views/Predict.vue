@@ -134,8 +134,8 @@
     <div v-else class="grid grid-train">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">模型训练与对比</div>
-          <button class="btn btn-primary" :disabled="training || !trainModels.length" @click="doTrain">开始训练</button>
+          <div class="card-title">后端训练结果</div>
+          <button class="btn btn-secondary" :disabled="training" @click="loadTrainResults">刷新结果</button>
         </div>
         <div class="controls">
           <div class="control">
@@ -148,62 +148,25 @@
             </select>
           </div>
           <div class="control">
-            <label>训练集占比</label>
-            <select v-model="trainRatio">
-              <option :value="0.7">70%</option>
-              <option :value="0.8">80%</option>
-              <option :value="0.9">90%</option>
+            <label>显示条数</label>
+            <select v-model="trainResultLimit">
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
             </select>
-          </div>
-          <div class="control">
-            <label>交叉验证折数</label>
-            <select v-model="cvFolds">
-              <option :value="3">3</option>
-              <option :value="5">5</option>
-              <option :value="10">10</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="model-pick">
-          <div class="row-head">
-            <div class="model-title">训练模型（可多选）</div>
-            <div class="row-actions">
-              <button class="btn btn-secondary btn-sm" type="button" @click="trainModels = [...modelList]">全选</button>
-              <button class="btn btn-secondary btn-sm" type="button" @click="trainModels = []">清空</button>
-            </div>
-          </div>
-          <div class="check-row">
-            <label v-for="m in modelList" :key="m">
-              <input type="checkbox" :value="m" v-model="trainModels" />
-              {{ m }}
-            </label>
-          </div>
-          <div v-if="trainModels.includes(ensembleName)" class="ensemble-box">
-            <div class="row-head">
-              <div class="model-title">组合模型基模型</div>
-              <div class="row-actions">
-                <button class="btn btn-secondary btn-sm" type="button" @click="ensembleBaseModels = [...baseModelList]">全选</button>
-                <button class="btn btn-secondary btn-sm" type="button" @click="ensembleBaseModels = []">清空</button>
-              </div>
-            </div>
-            <div class="check-row">
-              <label v-for="m in baseModelList" :key="m">
-                <input type="checkbox" :value="m" v-model="ensembleBaseModels" />
-                {{ m }}
-              </label>
-            </div>
           </div>
         </div>
 
         <div v-if="!trainResults.length" class="empty">
           <div class="empty-title">暂无训练结果</div>
-          <div class="empty-sub">配置参数后点击“开始训练”。</div>
+          <div class="empty-sub">请在后端执行训练任务，然后点击“刷新结果”。</div>
         </div>
         <div v-else class="train-results">
           <table class="data-table">
             <thead>
               <tr>
+                <th>时间</th>
+                <th>农产品</th>
                 <th>模型</th>
                 <th>MAE</th>
                 <th>RMSE</th>
@@ -211,11 +174,13 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in trainResults" :key="r.model_name">
+              <tr v-for="r in trainResults" :key="`${r.id}-${r.model_name}`">
+                <td>{{ r.created_at ? r.created_at.replace('T', ' ').slice(0, 19) : '—' }}</td>
+                <td>{{ r.product_name }}</td>
                 <td>{{ r.model_name }}</td>
-                <td>{{ r.error ?? (r.mae != null ? r.mae.toFixed(4) : '—') }}</td>
-                <td>{{ r.error ? '—' : (r.rmse != null ? r.rmse.toFixed(4) : '—') }}</td>
-                <td>{{ r.error ? '—' : (r.mape != null ? r.mape.toFixed(2) : '—') }}</td>
+                <td>{{ r.mae != null ? r.mae.toFixed(4) : '—' }}</td>
+                <td>{{ r.rmse != null ? r.rmse.toFixed(4) : '—' }}</td>
+                <td>{{ r.mape != null ? r.mape.toFixed(2) : '—' }}</td>
               </tr>
             </tbody>
           </table>
@@ -229,7 +194,7 @@
 import { ref, onMounted, computed, watch, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { predict as predictApi } from '@/api'
-import type { TrainResult, MultiPredictResult } from '@/api/types'
+import type { MultiPredictResult } from '@/api/types'
 
 const modelList = ref<string[]>([])
 const ensembleName = '组合模型'
@@ -237,10 +202,9 @@ const baseModelList = computed(() => modelList.value.filter((m) => m !== ensembl
 const activeTab = ref<'predict' | 'train'>('predict')
 
 const trainProduct = ref('本地白菜')
-const trainModels = ref<string[]>([])
 const training = ref(false)
-const trainResults = ref<{ model_name: string; mae?: number; rmse?: number; mape?: number; error?: string }[]>([])
-const trainRatio = ref(0.8)
+const trainResults = ref<{ id: number; product_name: string; model_name: string; mae?: number | null; rmse?: number | null; mape?: number | null; created_at?: string }[]>([])
+const trainResultLimit = ref(50)
 const cvFolds = ref(5)
 
 const predictProduct = ref('本地白菜')
@@ -265,27 +229,19 @@ onMounted(async () => {
     modelList.value = ['ARIMA', 'LSTM', 'SVR', '随机森林', ensembleName]
   }
 
-  trainModels.value = [...modelList.value]
   predictModels.value = [...modelList.value]
   ensembleBaseModels.value = [...baseModelList.value]
   bandModel.value = predictModels.value.includes(ensembleName) ? ensembleName : (predictModels.value[0] || '')
+  await loadTrainResults()
 })
 
-async function doTrain() {
-  if (!trainModels.value.length) return
+async function loadTrainResults() {
   training.value = true
-  trainResults.value = []
   try {
-    const res = await predictApi.train(
-      trainProduct.value,
-      trainModels.value,
-      trainRatio.value,
-      cvFolds.value,
-      trainModels.value.includes(ensembleName) ? ensembleBaseModels.value : undefined,
-    )
-    trainResults.value = (res.data as TrainResult)?.results ?? []
-  } catch (e: any) {
-    trainResults.value = [{ model_name: '请求失败', error: e.response?.data?.detail || '网络错误' }]
+    const res = await predictApi.trainResults(trainProduct.value, trainResultLimit.value)
+    trainResults.value = res.data?.results ?? []
+  } catch {
+    trainResults.value = []
   } finally {
     training.value = false
   }
@@ -301,6 +257,8 @@ async function doPredict() {
       predictDays.value,
       useWeather.value,
       predictModels.value.includes(ensembleName) ? ensembleBaseModels.value : undefined,
+      cvFolds.value,
+      'walk_forward',
     )
     predictResult.value = res.data
     await nextTick()
@@ -459,9 +417,14 @@ watch(
       }
       predChart = null
       metricsChart = null
+      loadTrainResults()
     }
   },
 )
+
+watch([trainProduct, trainResultLimit], () => {
+  if (activeTab.value === 'train') loadTrainResults()
+})
 
 watch(
   () => predictModels.value.slice().sort().join('|'),

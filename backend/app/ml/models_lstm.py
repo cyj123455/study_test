@@ -4,7 +4,6 @@ from typing import Optional
 from app.ml.base import BasePredictor
 
 try:
-    import tensorflow as tf
     from tensorflow import keras
     from tensorflow.keras import layers
     HAS_TF = True
